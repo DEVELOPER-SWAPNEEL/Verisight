@@ -1,0 +1,95 @@
+1. High-Level Overview
+- VeriSight is a deepfake detection system for uploaded media and live streams.
+- The core purpose is to accept media through an API, persist job metadata in MySQL, queue inference work through Redis, process jobs in a separate worker service, and return/store results for later API retrieval.
+- The architecture is split into an HTTP API service, an asynchronous inference worker service, a relational database, and a Redis-backed message queue/cache layer.
+
+2. Services Breakdown
+- api_service (FastAPI)
+  - Exposes HTTP endpoints for upload, status lookup, job listing, health checks, stats, and WebSocket stream coordination.
+  - Creates the database schema on startup via SQLAlchemy metadata.
+  - Writes job records to MySQL.
+  - Pushes analysis jobs into Redis.
+  - Runs a background listener thread that consumes result messages from Redis and persists them back into MySQL.
+- inference_service (worker)
+  - Runs a separate FastAPI application plus a background Redis worker thread.
+  - Consumes queued analysis jobs from Redis.
+  - Executes model inference for images and videos.
+  - Publishes completed or failed results to a Redis results queue.
+  - Hosts stream-control endpoints used by the API layer for live stream processing.
+- MySQL (database)
+  - Stores the persistent `analysis_jobs` table.
+  - Holds the authoritative job status, file metadata, result, confidence, error message, and timestamps.
+- Redis (queue/cache)
+  - Acts as the asynchronous transport between API and worker.
+  - `analysis_jobs` is the job queue.
+  - `analysis_results` is the result queue.
+  - `stream_results` is used for live stream result forwarding.
+
+3. Folder Structure
+- `api_service/app/api/*`
+  - `main.py`: FastAPI application bootstrap, router registration, static file mounting, health endpoints, startup listener.
+  - `routes/upload.py`: file upload endpoint, DB insert, Redis job enqueue.
+  - `routes/status.py`: per-job status retrieval from MySQL.
+  - `routes/jobs.py`: recent job listing from MySQL.
+  - `routes/results.py`: results-related router namespace.
+  - `routes/stream.py`: WebSocket coordination for live stream detection and communication with the inference service.
+  - `db/session.py`: SQLAlchemy engine, session factory, base model declaration, DB session dependency.
+  - `models/models.py`: ORM model definitions, including `AnalysisJob`.
+  - `core/redis_client.py`: Redis client used by the API service.
+  - `result_listener.py`: background Redis consumer that writes completed results back into MySQL.
+  - `core/config.py`: environment-driven configuration container.
+  - `core/security.py`: security-related support module.
+  - `static/*`: dashboard HTML assets served by the API.
+- `inference_service/worker/*`
+  - `main.py`: worker process entry point, FastAPI app, Redis job consumer thread, stream control endpoints.
+  - `inference.py`: model loading and single-media inference execution.
+  - `stream_processor.py`: live stream frame loop and aggregation logic.
+  - `__init__.py`: package marker for the worker module.
+
+4. Data Flow
+1. A client sends a request to the API, typically `POST /upload/`.
+2. The API validates the file, stores the uploaded media on disk, and creates a new `analysis_jobs` row in MySQL with status `queued`.
+3. The API serializes a job payload containing `job_id`, `file_path`, and media metadata.
+4. The API pushes that payload into Redis on the `analysis_jobs` list.
+5. The inference worker blocks on Redis with `BRPOP` and consumes the queued job.
+6. The worker loads the file, runs inference, and computes the label, confidence, and any extra metadata.
+7. The worker pushes a result payload into Redis on the `analysis_results` list.
+8. The API background listener blocks on Redis with `BRPOP` for `analysis_results`, receives the result payload, finds the matching MySQL row by `job_id`, and updates `status`, `result`, and `confidence`.
+9. Clients query the API through `GET /status/{job_id}` or `GET /jobs/` and receive the persisted MySQL state.
+10. For live streams, the API WebSocket layer coordinates with the inference service, which emits frame results into Redis on `stream_results`; the API forwards those results to the browser.
+
+5. Environment Variables Mapping
+- `DB_USER` → `MYSQLUSER`
+- `DB_PASSWORD` → `MYSQLPASSWORD`
+- `DB_HOST` → `MYSQLHOST`
+- `DB_PORT` → `MYSQLPORT`
+- `DB_NAME` → `MYSQLDATABASE`
+- `REDIS_HOST` → `REDISHOST`
+- `REDIS_PORT` → `REDISPORT`
+
+6. Service Communication
+- API to MySQL
+  - The API builds a SQLAlchemy MySQL connection string from environment variables.
+  - It uses `SessionLocal` and dependency-injected DB sessions to query and update the `analysis_jobs` table.
+- API to Redis
+  - The API uses a shared Redis client to `LPUSH` job messages into `analysis_jobs`.
+  - The API background listener uses Redis `BRPOP` on `analysis_results` to receive worker responses.
+  - The stream WebSocket path also uses Redis `BRPOP` on `stream_results` to forward live results.
+- Worker to Redis
+  - The worker uses Redis `BRPOP` on `analysis_jobs` to consume queued tasks.
+  - After inference, it `LPUSH`es result messages to `analysis_results`.
+  - For stream processing, it publishes results to `stream_results`.
+
+7. Deployment Architecture (Railway)
+- API service
+  - Deployed as a separate FastAPI service.
+  - Serves the HTTP API, static dashboard, and WebSocket coordination.
+- Inference service
+  - Deployed as a separate worker service.
+  - Runs inference jobs and stream-processing logic independently of the API.
+- MySQL service
+  - Deployed as a separate managed database service.
+  - Stores persistent job records and result state.
+- Redis service
+  - Deployed as a separate managed Redis service.
+  - Provides queueing and transient result transport between the API and worker services.

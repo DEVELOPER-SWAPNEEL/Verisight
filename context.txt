@@ -1,0 +1,44 @@
+1. Project Summary
+- VeriSight is a backend system for asynchronous deepfake detection.
+- It accepts media through an API, queues inference work through Redis, runs processing in a separate worker, and stores job state in MySQL.
+
+2. Key Technologies
+- FastAPI
+- SQLAlchemy
+- MySQL
+- Redis
+- Worker system
+
+3. Entry Points
+- API: `app.api.main:app`
+- Worker: `inference_service/worker/main.py`
+
+4. Important Files
+- `db/session.py` → DB connection
+- `redis_client.py` → Redis connection
+- `result_listener.py` → background listener
+- `worker/main.py` → processing logic
+
+5. Runtime Behavior
+- The API handles HTTP requests, WebSocket coordination, and persistence of job metadata.
+- The worker runs asynchronous jobs in a background thread.
+- Redis acts as the queue and transient result channel.
+- MySQL stores persistent job and result data.
+
+6. Environment Rules
+- Uses environment variables only, with no hardcoded deployment secrets.
+- Works with Railway variable references through the DB and Redis env names.
+
+7. Deployment Assumptions
+- API and worker are separate services.
+- Both connect to the same Redis and MySQL services.
+- No local-only configs are assumed for production deployment.
+
+8. Known Constraints
+- Requires a compatible Python version, typically 3.11 or 3.12.
+- Redis must not be `localhost` in production.
+- Database access must be externally configured.
+
+9. Goal of Project
+- A scalable async processing system.
+- An API plus background worker architecture for deepfake detection.
