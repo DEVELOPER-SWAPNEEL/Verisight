@@ -4,6 +4,9 @@ sqlalchemy
 pymysql
 redis
 python-dotenv
+aiofiles
+cryptography
+httpx
 transformers
 torch
 torchvision
