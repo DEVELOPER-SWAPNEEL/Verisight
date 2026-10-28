@@ -1,11 +1,9 @@
 import json
 import threading
-import redis
 from sqlalchemy.orm import Session
 from app.api.db.session import SessionLocal
 from app.api.models.models import AnalysisJob
-
-redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+from app.api.core.redis_client import redis_client
 
 def listen_for_results():
     print("Result listener started...")

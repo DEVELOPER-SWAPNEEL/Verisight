@@ -323,7 +323,7 @@ nav {
 
 <!-- NAV -->
 <nav>
-  <a href="/static/index.html" class="nav-back">← Dashboard</a>
+  <a href="index.html" class="nav-back">← Dashboard</a>
   <div class="nav-center">
     <a href="/" class="nav-logo">Veri<span>Sight</span></a>
   </div>
@@ -656,10 +656,18 @@ function startStream() {
   btnStart.disabled = true;
   btnStart.innerHTML = `<span class="spinner"></span> Connecting`;
 
-  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  const wsUrl    = `${protocol}//${location.host}/ws/stream`;
+  const apiBase = (localStorage.getItem("verisight_api_url") || window.VERISIGHT_API_URL || (window.location.protocol === "file:" ? "" : window.location.origin)).replace(/\/+$/, "");
+  if (!apiBase) {
+    setStatus("error", "API not configured");
+    addLog("system", "<strong>API not configured</strong> — open the dashboard and set your API URL before starting a stream");
+    btnStart.disabled = false;
+    btnStart.textContent = "▶ Start Stream";
+    return;
+  }
+  const wsUrl = new URL("/ws/stream", apiBase);
+  wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
 
-  ws = new WebSocket(wsUrl);
+  ws = new WebSocket(wsUrl.toString());
 
   ws.onopen = () => {
     ws.send(JSON.stringify({ type: "start", url }));

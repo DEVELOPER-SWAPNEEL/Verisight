@@ -6,6 +6,7 @@ venv/
 
 # Uploads
 uploads/
+dist/
 
 # Python cache
 __pycache__/

@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -12,6 +13,15 @@ from app.api.core.redis_client import redis_client
 from app.api.routes import upload, status, stream, jobs, results
 
 app = FastAPI(title="VeriSight API")
+
+allowed_origins = [origin.strip() for origin in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if origin.strip()]
+if allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
 # DB init
 Base.metadata.create_all(bind=engine)

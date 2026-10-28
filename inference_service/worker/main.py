@@ -12,12 +12,18 @@ from stream_processor import stream_analysis_loop
 # ─── REDIS ───────────────────────────────────────────────
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+REDIS_URL  = os.getenv("REDIS_URL")
 
-redis_client = redis.Redis(
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    db=0,
-    decode_responses=True
+redis_client = (
+    redis.Redis.from_url(REDIS_URL, decode_responses=True)
+    if REDIS_URL else
+    redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=int(os.getenv("REDIS_DB", "0")),
+        password=os.getenv("REDIS_PASSWORD") or None,
+        decode_responses=True,
+    )
 )
 
 QUEUE_NAME   = "analysis_jobs"

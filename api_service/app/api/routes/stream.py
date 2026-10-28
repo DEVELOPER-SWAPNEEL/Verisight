@@ -1,12 +1,13 @@
 import asyncio
 import json
+import os
 import httpx
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.api.core.redis_client import redis_client
 
 router = APIRouter()
 
-INFERENCE_SERVICE_URL = "http://localhost:8001"
+INFERENCE_SERVICE_URL = os.getenv("INFERENCE_SERVICE_URL", "http://localhost:8001").rstrip("/")
 
 current_stop_event: asyncio.Event | None = None
 

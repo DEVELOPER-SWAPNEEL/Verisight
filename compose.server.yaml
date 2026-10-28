@@ -1,0 +1,82 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: verisight
+      MYSQL_USER: verisight
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--silent", "-h", "127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  inference:
+    build:
+      context: ./inference_service
+    restart: unless-stopped
+    working_dir: /app/worker
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - verisight_uploads:/app/uploads
+      - hf_cache:/root/.cache/huggingface
+      - insightface_cache:/root/.insightface
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./api_service
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: verisight
+      DB_USER: verisight
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      INFERENCE_SERVICE_URL: http://inference:8001
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
+    ports:
+      - "127.0.0.1:${API_PORT:-8004}:8000"
+    volumes:
+      - verisight_uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      inference:
+        condition: service_started
+
+volumes:
+  mysql_data:
+  redis_data:
+  verisight_uploads:
+  hf_cache:
+  insightface_cache:

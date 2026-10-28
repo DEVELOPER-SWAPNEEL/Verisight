@@ -146,6 +146,19 @@ verisight/
 
 ## Getting Started
 
+### Deploy the website to Vercel
+
+The Vercel deployment serves the static dashboard. The API, MySQL database, Redis queue, and inference worker are separate services and must be running on an internet-accessible host for uploads and live analysis to work.
+
+1. Import this GitHub repository in Vercel and keep the repository root as the project root. The included `vercel.json` builds the dashboard from `api_service/app/api/static/`.
+2. Set the Vercel environment variable `VERISIGHT_API_URL` to the public HTTPS base URL of the FastAPI API service (for example, `https://api.example.com`, with no trailing slash). Vercel injects this URL into both the dashboard's HTTP requests and its live-stream WebSocket connection at build time.
+3. On the API host, set `CORS_ALLOW_ORIGINS` to the exact Vercel site origin (for example, `https://verisight-your-team.vercel.app`). Include any custom domain origins as a comma-separated list, then redeploy the API.
+4. Redeploy the Vercel project after setting or changing `VERISIGHT_API_URL`.
+
+The live-stream page also needs the API's `/ws/stream` WebSocket endpoint to be available through the API host. A static Vercel deployment by itself cannot run the Python worker, Redis, or MySQL. Image uploads currently support JPG, PNG, and WEBP up to 10 MB; video analysis is not implemented by the upload endpoint yet.
+
+To build the same static output locally, run `node scripts/build-vercel.mjs`. The generated site is written to `dist/`.
+
 ### Prerequisites
 
 - Python 3.10+

@@ -42,6 +42,8 @@ nav{position:sticky;top:0;z-index:100;background:rgba(248,247,244,0.92);backdrop
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.25;}}
 .nav-cta{padding:6px 14px;background:var(--text);color:white;border-radius:8px;font-size:0.82rem;font-weight:500;text-decoration:none;display:flex;align-items:center;gap:5px;transition:all 0.15s;}
 .nav-cta:hover{background:#2d2a26;transform:translateY(-1px);}
+.nav-config{padding:6px 11px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;font:500 0.78rem 'DM Sans',sans-serif;cursor:pointer;}
+.nav-config:hover{border-color:var(--border2);color:var(--text);}
 
 /* ── HERO ── */
 .hero{text-align:center;padding:60px 24px 44px;animation:fadeUp 0.5s ease both;}
@@ -193,11 +195,12 @@ td{padding:11px 14px;font-size:0.82rem;vertical-align:middle;}
 <nav>
   <a href="/" class="nav-logo">Veri<span>Sight</span></a>
   <div class="nav-right">
-    <div class="live-badge">
+    <div class="live-badge" id="api-status">
       <div class="live-dot"></div>
-      System Online
+      <span id="api-status-label">Checking API</span>
     </div>
-    <a href="/static/stream.html" class="nav-cta">📡 Live Stream</a>
+    <button class="nav-config" id="api-config-btn" type="button">API settings</button>
+    <a href="stream.html" class="nav-cta">📡 Live Stream</a>
   </div>
 </nav>
 
@@ -205,7 +208,7 @@ td{padding:11px 14px;font-size:0.82rem;vertical-align:middle;}
 <div class="hero">
   <div class="hero-badge">🛡️ AI-Powered Media Verification</div>
   <h1>Is this media <em>real</em>?<br/>Find out instantly.</h1>
-  <p class="hero-sub">Upload any image or video — VeriSight detects deepfakes using a model trained on FaceForensics++.</p>
+  <p class="hero-sub">Upload an image — VeriSight checks for signs of manipulation using a deepfake detection model.</p>
 
   <!-- LIVE STATS FROM /stats -->
   <div class="stats-row">
@@ -237,10 +240,10 @@ td{padding:11px 14px;font-size:0.82rem;vertical-align:middle;}
     </div>
     <div class="card-body">
       <div class="drop-zone" id="drop-zone">
-        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"/>
+        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp"/>
         <div class="drop-icon">⬆️</div>
         <div class="drop-title">Drop file here or click to browse</div>
-        <div class="drop-sub">JPG · PNG · WEBP · MP4 · WEBM &nbsp;·&nbsp; Max 100MB</div>
+        <div class="drop-sub">JPG · PNG · WEBP &nbsp;·&nbsp; Max 10MB</div>
       </div>
 
       <div class="file-preview" id="file-preview">
@@ -352,11 +355,51 @@ td{padding:11px 14px;font-size:0.82rem;vertical-align:middle;}
 </div><!-- /main -->
 
 <script>
+const storedApiUrl = localStorage.getItem("verisight_api_url") || "";
+const configuredApiUrl = storedApiUrl || window.VERISIGHT_API_URL || "";
+const API_BASE = (configuredApiUrl || (window.location.protocol === "file:" ? "" : window.location.origin)).replace(/\/+$/, "");
 let selectedFile = null;
 let currentJobId = null;
 let pollTimer    = null;
 let activeFilter = "all";
 let allJobs      = [];
+
+document.getElementById("api-config-btn").addEventListener("click", () => {
+  const value = window.prompt("Enter your deployed VeriSight API URL (for example, https://api.example.com):", configuredApiUrl || "");
+  if (value === null) return;
+  const apiUrl = value.trim().replace(/\/+$/, "");
+  if (apiUrl) {
+    let parsed;
+    try { parsed = new URL(apiUrl); } catch { parsed = null; }
+    if (!parsed || !["http:", "https:"].includes(parsed.protocol)) {
+      window.alert("Enter a valid API URL beginning with http:// or https://.");
+      return;
+    }
+    localStorage.setItem("verisight_api_url", apiUrl);
+  } else {
+    localStorage.removeItem("verisight_api_url");
+  }
+  window.location.reload();
+});
+
+async function checkApiConnection() {
+  const badge = document.getElementById("api-status");
+  const label = document.getElementById("api-status-label");
+  if (!API_BASE) {
+    label.textContent = "API not configured";
+    badge.style.color = "var(--amber)";
+    return;
+  }
+  try {
+    const response = await fetch(`${API_BASE}/health`, { method: "GET" });
+    if (!response.ok) throw new Error("API health check failed");
+    label.textContent = "API connected";
+    badge.style.color = "var(--green)";
+  } catch {
+    label.textContent = "API unreachable";
+    badge.style.color = "var(--red)";
+  }
+}
 
 // ── FILE SELECT ──
 const dropZone    = document.getElementById("drop-zone");
@@ -422,7 +465,8 @@ analyzeBtn.addEventListener("click", async () => {
   form.append("file", selectedFile);
 
   try {
-    const res  = await fetch("/upload/", {method:"POST", body:form});
+    if (!API_BASE) throw new Error("This page is opened as a local file, so the browser cannot call the API. Open the deployed HTTPS site, or serve this page over HTTP and allow that origin in the API's CORS settings.");
+    const res  = await fetch(`${API_BASE}/upload/`, {method:"POST", body:form});
     const data = await res.json();
     if(!res.ok) throw new Error(data.detail || "Upload failed");
 
@@ -433,7 +477,11 @@ analyzeBtn.addEventListener("click", async () => {
     clearInterval(pollTimer);
     pollTimer = setInterval(() => pollJob(currentJobId), 2000);
   } catch(e) {
-    showResult("fake","⚠️","Upload Failed", e.message);
+    const message = e instanceof TypeError
+      ? `Could not reach ${API_BASE}. Check that the FastAPI service is deployed, its URL is configured in API settings, and it allows this website in CORS_ALLOW_ORIGINS.`
+      : e.message;
+    document.getElementById("meta-status").textContent = "Failed";
+    showResult("fake","⚠️","Upload Failed", message);
     analyzeBtn.disabled   = false;
     analyzeBtn.textContent = "Try again";
     document.getElementById("polling-bar").classList.remove("active");
@@ -442,7 +490,7 @@ analyzeBtn.addEventListener("click", async () => {
 
 async function pollJob(jobId) {
   try {
-    const res  = await fetch(`/status/${jobId}`);
+    const res  = await fetch(`${API_BASE}/status/${jobId}`);
     const data = await res.json();
     document.getElementById("meta-status").textContent =
       data.status.charAt(0).toUpperCase() + data.status.slice(1);
@@ -495,7 +543,7 @@ function showResult(type, icon, label, desc) {
 // ── STATS ──
 async function loadStats() {
   try {
-    const res  = await fetch("/stats");
+    const res  = await fetch(`${API_BASE}/stats`);
     const data = await res.json();
 
     if(data.total_analyzed === 0) {
@@ -538,7 +586,7 @@ async function loadHistory() {
   const btn = document.getElementById("refresh-btn");
   btn.classList.add("spinning");
   try {
-    const res  = await fetch("/jobs/");
+    const res  = await fetch(`${API_BASE}/jobs/`);
     const jobs = await res.json();
     allJobs = jobs;
     renderHistory(jobs);
@@ -622,6 +670,7 @@ document.getElementById("refresh-btn").addEventListener("click", loadHistory);
 // ── INIT ──
 loadStats();
 loadHistory();
+checkApiConnection();
 setInterval(loadHistory, 15000);
 setInterval(loadStats,   30000);
 </script>
