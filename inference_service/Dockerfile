@@ -19,6 +19,11 @@ COPY requirements.txt /app/requirements.txt
 
 RUN pip install --upgrade pip
 
+# This deployment uses CPU inference. Install the official CPU wheels so pip
+# does not pull hundreds of megabytes of unused CUDA libraries from PyPI.
+RUN pip install --no-cache-dir torch torchvision \
+    --index-url https://download.pytorch.org/whl/cpu
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
