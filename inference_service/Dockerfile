@@ -15,10 +15,12 @@ RUN apt-get update && apt-get install -y \
     libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY . /app
+COPY requirements.txt /app/requirements.txt
 
 RUN pip install --upgrade pip
 
 RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . /app
 
 CMD ["python", "worker/main.py"]

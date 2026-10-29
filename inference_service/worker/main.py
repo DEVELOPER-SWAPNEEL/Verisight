@@ -15,7 +15,12 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_URL  = os.getenv("REDIS_URL")
 
 redis_client = (
-    redis.Redis.from_url(REDIS_URL, decode_responses=True)
+    redis.Redis.from_url(
+        REDIS_URL,
+        decode_responses=True,
+        socket_connect_timeout=5,
+        socket_timeout=15,
+    )
     if REDIS_URL else
     redis.Redis(
         host=REDIS_HOST,
@@ -23,6 +28,8 @@ redis_client = (
         db=int(os.getenv("REDIS_DB", "0")),
         password=os.getenv("REDIS_PASSWORD") or None,
         decode_responses=True,
+        socket_connect_timeout=5,
+        socket_timeout=15,
     )
 )
 
