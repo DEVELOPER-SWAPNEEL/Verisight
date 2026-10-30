@@ -155,6 +155,16 @@ The Vercel deployment serves the static dashboard. The API, MySQL database, Redi
 3. On the API host, set `CORS_ALLOW_ORIGINS` to the exact Vercel site origin (for example, `https://verisight-your-team.vercel.app`). Include any custom domain origins as a comma-separated list, then redeploy the API.
 4. Redeploy the Vercel project after setting or changing `VERISIGHT_API_URL`.
 
+#### GitHub CI and Vercel deployments
+
+The GitHub Actions workflow at `.github/workflows/ci.yml` checks the dashboard JavaScript, runs the static build, and verifies the files Vercel needs. It runs on pull requests and pushes to `main` and `verisight-office-deploy`.
+
+For continuous deployment, connect this repository to Vercel using Vercel's GitHub integration. Vercel will create preview deployments for pull requests and branch pushes; pushes to the selected Production Branch update the production site. For the current VeriSight deployment, select `verisight-office-deploy` as the Production Branch so the original `main` branch is not published unintentionally. The Vercel Git integration handles deployment; no Vercel token or deployment secret is needed in GitHub Actions.
+
+After the first deployment, you can add the GitHub Actions job **Build and verify Vercel site** as a required Deployment Check in Vercel's project settings. This holds production promotion until the static build check passes.
+
+In Vercel Project Settings → Environment Variables, add `VERISIGHT_API_URL` for both **Production** and **Preview**, using the public HTTPS API URL. If using Tailscale Funnel, this is the Funnel HTTPS URL; the public website still uses its Vercel URL. After the first deployment, add that deployment's exact origin to `CORS_ALLOW_ORIGINS` on the API host. Include any additional preview or custom-domain origins that should be allowed. Redeploy the API after changing CORS, and redeploy Vercel after changing `VERISIGHT_API_URL`.
+
 The live-stream page also needs the API's `/ws/stream` WebSocket endpoint to be available through the API host. A static Vercel deployment by itself cannot run the Python worker, Redis, or MySQL. Image uploads currently support JPG, PNG, and WEBP up to 10 MB; video analysis is not implemented by the upload endpoint yet.
 
 To build the same static output locally, run `node scripts/build-vercel.mjs`. The generated site is written to `dist/`.

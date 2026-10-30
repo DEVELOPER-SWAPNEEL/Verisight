@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>VeriSight — Deepfake Detection</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+<script type="importmap">
+{"imports":{"react":"https://esm.sh/react@18.3.1","react/jsx-runtime":"https://esm.sh/react@18.3.1/jsx-runtime?external=react","react-dom/client":"https://esm.sh/react-dom@18.3.1/client?external=react","framer":"./framer-runtime-shim.js"}}
+</script>
 <style>
 :root {
   --bg:        #f8f7f4;
@@ -46,10 +49,18 @@ nav{position:sticky;top:0;z-index:100;background:rgba(248,247,244,0.92);backdrop
 .nav-config:hover{border-color:var(--border2);color:var(--text);}
 
 /* ── HERO ── */
-.hero{text-align:center;padding:60px 24px 44px;animation:fadeUp 0.5s ease both;}
+.hero{min-height:calc(100svh - 60px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:clamp(36px,5vh,68px) 24px clamp(84px,10vh,128px);animation:fadeUp 0.5s ease both;}
 .hero-badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 13px;font-size:0.75rem;font-weight:500;color:var(--muted);margin-bottom:18px;box-shadow:var(--shadow-sm);}
-h1{font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(2rem,5vw,3.4rem);font-weight:800;letter-spacing:-0.04em;line-height:1.1;margin-bottom:12px;}
+h1{position:relative;isolation:isolate;width:max-content;max-width:min(100%,1440px);margin:0 auto 18px;padding-inline:3px;font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(1.5rem,7.7vw,6.6rem);font-weight:800;letter-spacing:-0.02em;line-height:1.08;}
+h1 .hero-heading-lines{display:block;transition:opacity .12s ease;}
+h1 .hero-heading-line{display:block;white-space:nowrap;}
 h1 em{font-style:normal;background:linear-gradient(135deg,#16a34a,#0d9488);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.fluid-heading-mount{position:absolute;inset:0;z-index:2;pointer-events:auto;}
+.fluid-heading-mount>div{width:100%;height:100%;overflow:visible;}
+.fluid-heading-mount canvas{max-width:none;}
+.fluid-ready .hero-heading-lines{opacity:0;}
+.fluid-heading-fallback .fluid-heading-mount{display:none;}
+@media(max-width:560px){.hero{min-height:calc(100svh - 60px);padding:clamp(32px,6vh,52px) 20px clamp(64px,9vh,96px);}h1{font-size:clamp(1.5rem,8.5vw,3rem);letter-spacing:-0.035em;line-height:1.1;}}
 .hero-sub{font-size:0.97rem;color:var(--muted);max-width:440px;margin:0 auto 28px;line-height:1.65;}
 
 /* ── LIVE STATS ── */
@@ -61,7 +72,7 @@ h1 em{font-style:normal;background:linear-gradient(135deg,#16a34a,#0d9488);-webk
 .stat-label{font-size:0.68rem;color:var(--muted2);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;}
 
 /* ── LAYOUT ── */
-.main{max-width:1060px;margin:0 auto;padding:28px 24px 80px;display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
+.main{max-width:1060px;margin:0 auto;padding:clamp(40px,6vh,72px) 24px 80px;display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
 @media(max-width:720px){.main{grid-template-columns:1fr;}}
 
 /* ── CARD ── */
@@ -207,7 +218,13 @@ td{padding:11px 14px;font-size:0.82rem;vertical-align:middle;}
 <!-- HERO -->
 <div class="hero">
   <div class="hero-badge">🛡️ AI-Powered Media Verification</div>
-  <h1>Is this media <em>real</em>?<br/>Find out instantly.</h1>
+  <h1 id="hero-heading" aria-label="Is this media real? Find out instantly.">
+    <span class="hero-heading-lines" aria-hidden="true">
+      <span class="hero-heading-line">Is this media <em>real</em>?</span>
+      <span class="hero-heading-line">Find out instantly.</span>
+    </span>
+    <span class="fluid-heading-mount" id="fluid-heading-mount" aria-hidden="true"></span>
+  </h1>
   <p class="hero-sub">Upload an image — VeriSight checks for signs of manipulation using a deepfake detection model.</p>
 
   <!-- LIVE STATS FROM /stats -->
@@ -674,5 +691,6 @@ checkApiConnection();
 setInterval(loadHistory, 15000);
 setInterval(loadStats,   30000);
 </script>
+<script type="module" src="./framer-fluid-heading.js"></script>
 </body>
 </html>

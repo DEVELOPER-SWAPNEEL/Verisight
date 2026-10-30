@@ -1,0 +1,43 @@
+name: VeriSight CI
+
+on:
+  push:
+    branches: [main, verisight-office-deploy]
+  pull_request:
+    branches: [main, verisight-office-deploy]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-static-site:
+    name: Build and verify Vercel site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check scripts/build-vercel.mjs
+          node --check api_service/app/api/static/framer-fluid-heading.js
+          node --check api_service/app/api/static/framer-runtime-shim.js
+
+      - name: Build static site
+        run: node scripts/build-vercel.mjs
+
+      - name: Verify deployment output
+        run: |
+          test -s dist/index.html
+          test -s dist/stream.html
+          test -s dist/config.js
+          test -s dist/framer-fluid-heading.js
+          test -s dist/framer-runtime-shim.js
+          grep -Fq 'Is this media real?' dist/index.html
+          grep -Fq 'Find out instantly.' dist/index.html

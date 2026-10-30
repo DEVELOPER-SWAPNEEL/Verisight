@@ -6,6 +6,18 @@ const source = resolve(root, "api_service/app/api/static");
 const output = resolve(root, "dist");
 const apiUrl = (process.env.VERISIGHT_API_URL || "").trim().replace(/\/+$/, "");
 
+if (process.env.VERCEL === "1") {
+  let parsedApiUrl;
+  try {
+    parsedApiUrl = new URL(apiUrl);
+  } catch {
+    throw new Error("Set VERISIGHT_API_URL to the public HTTPS URL of the VeriSight API in Vercel Project Settings.");
+  }
+  if (parsedApiUrl.protocol !== "https:" || !parsedApiUrl.hostname) {
+    throw new Error("VERISIGHT_API_URL must be a public HTTPS URL.");
+  }
+}
+
 await mkdir(output, { recursive: true });
 await cp(source, output, { recursive: true });
 await writeFile(
