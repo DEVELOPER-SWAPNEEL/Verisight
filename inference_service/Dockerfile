@@ -26,6 +26,12 @@ RUN pip install --no-cache-dir torch torchvision \
 
 RUN pip install --no-cache-dir -r requirements.txt
 
+# yt-dlp relies on the ffmpeg executable for stream processing. Keep this
+# after dependency installation so adding the system package does not invalidate
+# the larger Python/PyTorch image layers on subsequent builds.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY . /app
 
 CMD ["python", "worker/main.py"]
