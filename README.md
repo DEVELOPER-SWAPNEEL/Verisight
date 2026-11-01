@@ -1,7 +1,7 @@
 # VeriSight — Deepfake Detection System
 
 > AI-powered media authentication system for detecting deepfake images, videos, and live streams using deep learning and distributed microservice architecture.
-
+> Deployed link:- https://verisight-rosy.vercel.app/
 ---
 
 ## Overview
